@@ -7,6 +7,7 @@ module DiscreteControllersPlotsExt
 
 using DiscreteControllers
 using Plots
+using Printf
 
 """
     @recipe function plot(ctrl::DiscreteController)
@@ -164,10 +165,18 @@ Recipe for manipulated variable visualization with discrete step-like behavior.
         step_times, step_values
     end
 
-    # Add horizontal lines for MV limits if finite
+    # Calculate MV range for intelligent y-axis scaling
+    mv_min, mv_max = extrema(ctrl.logger.manipulated_variables)
+    mv_range = mv_max - mv_min
+    mv_margin = max(mv_range * 0.1, 0.1)  # 10% margin or minimum 0.1
+
+    # Set y-axis limits based on actual MV data
+    ylims := (mv_min - mv_margin, mv_max + mv_margin)
+
+    # Show limit lines with values in legend
     if isfinite(ctrl.pid.umax)
         @series begin
-            label := "Max MV"
+            label := @sprintf("Max MV (%.2g)", ctrl.pid.umax)
             color := RGB(0.2, 0.2, 0.2)
             linestyle := :dash
             linewidth := 2.0
@@ -178,7 +187,7 @@ Recipe for manipulated variable visualization with discrete step-like behavior.
 
     if isfinite(ctrl.pid.umin)
         @series begin
-            label := "Min MV"
+            label := @sprintf("Min MV (%.2g)", ctrl.pid.umin)
             color := RGB(0.2, 0.2, 0.2)
             linestyle := :dash
             linewidth := 2.0
