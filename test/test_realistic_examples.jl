@@ -204,11 +204,11 @@ using DiscreteControllers
         )
 
         # Test state changes
-        @test ctrl.state.is_active == true
+        @test ctrl.is_active == true
         deactivate!(ctrl)
-        @test ctrl.state.is_active == false
+        @test ctrl.is_active == false
         activate!(ctrl)
-        @test ctrl.state.is_active == true
+        @test ctrl.is_active == true
 
         # Test setpoint changes
         set_setpoint!(ctrl, 15.0)

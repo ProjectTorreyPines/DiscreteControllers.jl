@@ -52,7 +52,7 @@ function update_controller!(
     ctrl.timing.current_time = new_time
 
     # Check if controller is active
-    if !ctrl.state.is_active
+    if !ctrl.is_active
         return false
     end
 
@@ -189,7 +189,7 @@ end
 Activate the controller (enable control updates).
 """
 function activate!(ctrl::DiscreteController)
-    ctrl.state.is_active = true
+    ctrl.is_active = true
 end
 
 """
@@ -198,7 +198,7 @@ end
 Deactivate the controller (disable control updates).
 """
 function deactivate!(ctrl::DiscreteController)
-    ctrl.state.is_active = false
+    ctrl.is_active = false
 end
 
 """
@@ -245,7 +245,7 @@ Check if the controller is currently active.
 - `true` if controller is active, `false` otherwise
 """
 function is_active(ctrl::DiscreteController)
-    return ctrl.state.is_active
+    return ctrl.is_active
 end
 
 """

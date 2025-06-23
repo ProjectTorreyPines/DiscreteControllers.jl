@@ -28,7 +28,7 @@ using DiscreteControllers
         @test ctrl.sp == 100.0
         @test ctrl.name == "test_controller"
         @test ctrl.Ts == 0.01
-        @test ctrl.state.is_active == true
+        @test ctrl.is_active == true
         @test ctrl.monitor.update_count == 0
     end
 
@@ -108,7 +108,7 @@ using DiscreteControllers
 
         # Deactivate controller
         deactivate!(ctrl)
-        @test ctrl.state.is_active == false
+        @test ctrl.is_active == false
 
         # Should not update when inactive
         measurement_data[] = 50.0
@@ -118,7 +118,7 @@ using DiscreteControllers
 
         # Reactivate
         activate!(ctrl)
-        @test ctrl.state.is_active == true
+        @test ctrl.is_active == true
 
         # Should update when active
         result = update_controller!(ctrl, 0.02)

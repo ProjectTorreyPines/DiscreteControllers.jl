@@ -102,7 +102,7 @@ Display a brief status summary of the controller.
 """
 function show_controller_status(ctrl::DiscreteController)
     println("Controller: $(ctrl.name)")
-    println("  Status: $(ctrl.state.is_active ? "ACTIVE" : "INACTIVE")")
+    println("  Status: $(ctrl.is_active ? "ACTIVE" : "INACTIVE")")
     println("  Setpoint: $(round(ctrl.sp, digits=3))")
     println("  Process Variable: $(round(ctrl.pv, digits=3))")
     println("  Error: $(round(ctrl.error, digits=3))")

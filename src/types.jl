@@ -3,10 +3,10 @@ Type definitions for DiscreteControllers.jl
 
 This module defines all the core types used in the discrete control system:
 - TimingManager: handles sampling time and scheduling
-- ControlState: manages current controller state
 - PerformanceMonitor: tracks performance metrics
 - Logger: collects time-series data
 - DiscreteController: main controller type
+- ExternalInterface: groups I/O callbacks for external system integration
 """
 
 """
@@ -19,15 +19,6 @@ mutable struct TimingManager{FT<:AbstractFloat}
     last_update_time::FT      # Last control update time [s]
     next_scheduled_time::FT   # Next scheduled update time [s]
     const tolerance::FT       # Timing tolerance for sampling
-end
-
-"""
-    ControlState{FT<:AbstractFloat}
-
-Internal structure for managing current controller state.
-"""
-mutable struct ControlState{FT<:AbstractFloat}
-    is_active::Bool           # Controller enable/disable
 end
 
 """
@@ -94,7 +85,6 @@ A self-contained discrete controller that manages its own sampling timing.
 - `set_setpoint::Union{Function, Nothing}`: Optional function to get setpoint `() -> Real`
 - `apply_manipulated_variable::Union{Function, Nothing}`: Optional function to apply MV `(mv::Real) -> nothing`
 - `timing::TimingManager{FT}`: Timing and scheduling management
-- `state::ControlState{FT}`: Current controller state
 - `monitor::PerformanceMonitor`: Performance monitoring metrics
 - `enable_logging::Bool`: Whether to log data during control updates (every Ts)
 - `logger::Logger{FT}`: Logger for control updates (every Ts)
@@ -138,6 +128,7 @@ mutable struct DiscreteController{FT<:AbstractFloat}
     # Core identification and control
     name::String
     const Ts::FT              # Sample time (immutable)
+    is_active::Bool           # Controller enable/disable state
     pid::DiscretePID{FT}
 
     # Process variables (always stored as values for consistency)
@@ -152,7 +143,6 @@ mutable struct DiscreteController{FT<:AbstractFloat}
 
     # Internal management structures
     timing::TimingManager{FT}
-    state::ControlState{FT}
     monitor::PerformanceMonitor
 
     # Logging (always available, flag controls usage)
@@ -180,14 +170,13 @@ mutable struct DiscreteController{FT<:AbstractFloat}
         Ts_val = FT(Ts)
 
         new{FT}(
-            name, Ts_val, pid,
+            name, Ts_val, is_active, pid,
             sp_val, pv_val, sp_val - pv_val, FT(0.0),
             external,
             TimingManager{FT}(
                 FT(initial_time), FT(initial_time),
                 FT(initial_time + Ts_val), FT(timing_tolerance)
             ),
-            ControlState{FT}(is_active),
             PerformanceMonitor(0, 0),
             enable_logging,
             Logger{FT}()
