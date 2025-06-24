@@ -64,7 +64,7 @@ function update_controller!(
         try
             # Update setpoint if callback provided
             if ctrl.external.set_setpoint !== nothing
-                ctrl.sp = FT(ctrl.external.set_setpoint())
+                ctrl.sp = FT(ctrl.external.set_setpoint(new_time))
             end
 
             # Update process variable if callback provided
