@@ -8,6 +8,7 @@ module DiscreteControllersPlotsExt
 using DiscreteControllers
 using Plots
 using Printf
+using HelpPlots
 
 """
     get_time_scale_info(timescale::Symbol)
@@ -16,6 +17,8 @@ Get the scaling factor and unit label for the given timescale.
 Supported timescales: :s, :ms, :us (or :μs)
 """
 function get_time_scale_info(timescale::Symbol)
+    id = HelpPlots.recipe_dispatch(timescale)
+    HelpPlots.assert_type_and_record_argument(id, Symbol, "scaling of timestamps (:s, :ms, :us, or :μs)"; timescale)
     if timescale == :s
         return 1.0, "s"
     elseif timescale == :ms
