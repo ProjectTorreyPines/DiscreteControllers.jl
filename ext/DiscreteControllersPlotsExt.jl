@@ -48,25 +48,25 @@ Plot recipe for DiscreteController objects. Creates a multi-panel plot showing a
     # Panel 1: Setpoint tracking
     @series begin
         subplot := 1
-        ctrl, Val(:track)
+        ctrl, Val(:track) # plot_track
     end
 
     # Panel 2: Error analysis
     @series begin
         subplot := 2
-        ctrl, Val(:error)
+        ctrl, Val(:error) # plot_error
     end
 
     # Panel 3: Control output
     @series begin
         subplot := 3
-        ctrl, Val(:control)
+        ctrl, Val(:control) # plot_control
     end
 
     # Panel 4: Phase portrait
     @series begin
         subplot := 4
-        ctrl, Val(:phase)
+        ctrl, Val(:phase) # plot_phase
     end
 end
 
@@ -80,12 +80,12 @@ Convenience wrapper that converts Symbol to Val{Symbol} for type dispatch.
 end
 
 """
-    @recipe function plot(ctrl::DiscreteController, ::Val{:setpoint})
+    @recipe function plot_setpoint(ctrl::DiscreteController, ::Val{:setpoint})
 
 Recipe for setpoint visualization only.
 Supports timescale keyword: :s, :ms, :us (or :μs)
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:setpoint})
+@recipe function plot_setpoint(ctrl::DiscreteController, ::Val{:setpoint})
     if isempty(ctrl.logger.timestamps)
         @warn "Controller logger is empty, nothing to plot"
         return
@@ -110,12 +110,12 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
 end
 
 """
-    @recipe function plot(ctrl::DiscreteController, ::Val{:pv})
+    @recipe function plot_pv(ctrl::DiscreteController, ::Val{:pv})
 
 Recipe for process variable visualization only.
 Supports timescale keyword: :s, :ms, :us (or :μs)
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:pv})
+@recipe function plot_pv(ctrl::DiscreteController, ::Val{:pv})
     if isempty(ctrl.logger.timestamps)
         @warn "Controller logger is empty, nothing to plot"
         return
@@ -143,12 +143,12 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
 end
 
 """
-    @recipe function plot(ctrl::DiscreteController, ::Val{:track})
+    @recipe function plot_track(ctrl::DiscreteController, ::Val{:track})
 
 Recipe for setpoint tracking visualization (combines setpoint and PV).
 Supports timescale keyword: :s, :ms, :us (or :μs)
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:track})
+@recipe function plot_track(ctrl::DiscreteController, ::Val{:track})
     if isempty(ctrl.logger.timestamps)
         @warn "Controller logger is empty, nothing to plot"
         return
@@ -157,24 +157,24 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
     title := "Setpoint Tracking Performance"
     ylabel --> "Value"
 
-    # Plot setpoint
+    # Plot setpoint - calls plot_setpoint recipe
     @series begin
-        ctrl, Val(:setpoint)
+        ctrl, Val(:setpoint) # plot_setpoint
     end
 
-    # Plot process variable
+    # Plot process variable - calls plot_pv recipe
     @series begin
-        ctrl, Val(:pv)
+        ctrl, Val(:pv) # plot_pv
     end
 end
 
 """
-    @recipe function plot(ctrl::DiscreteController, ::Val{:error})
+    @recipe function plot_error(ctrl::DiscreteController, ::Val{:error})
 
 Recipe for error analysis visualization.
 Supports timescale keyword: :s, :ms, :us (or :μs)
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:error})
+@recipe function plot_error(ctrl::DiscreteController, ::Val{:error})
     if isempty(ctrl.logger.timestamps)
         @warn "Controller logger is empty, nothing to plot"
         return
@@ -211,7 +211,7 @@ end
 Recipe for manipulated variable visualization with discrete step-like behavior.
 Supports timescale keyword: :s, :ms, :us (or :μs)
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:control})
+@recipe function plot_control(ctrl::DiscreteController, ::Val{:control})
     if isempty(ctrl.logger.timestamps)
         @warn "Controller logger is empty, nothing to plot"
         return
@@ -282,12 +282,12 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
 end
 
 """
-    @recipe function plot(ctrl::DiscreteController, ::Val{:phase})
+    @recipe function plot_phase(ctrl::DiscreteController, ::Val{:phase})
 
 Recipe for phase portrait visualization (Error vs Error Rate).
 Note: Error rate units are affected by timescale choice.
 """
-@recipe function plot(ctrl::DiscreteController, ::Val{:phase})
+@recipe function plot_phase(ctrl::DiscreteController, ::Val{:phase})
     if isempty(ctrl.logger.timestamps) || length(ctrl.logger.timestamps) < 2
         @warn "Controller logger needs at least 2 points for phase plot"
         return
