@@ -150,6 +150,7 @@ function DiscreteController(pid::DiscretePID{FT};
     kwargs...
 ) where {FT<:AbstractFloat}
     @assert pid.Ts > 0 "Sample time Ts must be positive"
+    @assert !haskey(kwargs, :Ts) "Cannot specify Ts when providing a DiscretePID (PID already has Ts=$(pid.Ts))"
 
     # Convert inputs to appropriate types
     Ts = pid.Ts
@@ -164,12 +165,13 @@ function DiscreteController(pid::DiscretePID{FT};
     )
 end
 
-# Constructor with a given sampling time Ts
+# Constructor with sampling time Ts (creates PID internally)
 function DiscreteController(Ts::FT;
     initial_time::Real = 0.0,
     kwargs...
 ) where {FT<:AbstractFloat}
-    @assert Ts > 0 "Sample time Ts must be positive"    # Get field names for both types to separate kwargs
+    @assert Ts > 0 "Sample time Ts must be positive"
+    @assert !haskey(kwargs, :pid) "Cannot specify pid when providing Ts (use DiscreteController(pid; ...) instead)"
 
     # Filter kwargs based on field names
     pid_fields = Set(fieldnames(DiscretePID{FT}))
@@ -197,4 +199,9 @@ function DiscreteController(Ts::FT;
         ),
         controller_kwargs...
     )
+end
+
+# Convenience constructors for common use cases
+function DiscreteController(Ts::Int; kwargs...)
+    return DiscreteController(Float64(Ts); kwargs...)
 end
