@@ -1,0 +1,52 @@
+---
+name: Full CI (once per week)
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run at midnight on Sunday every week
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.flavor.os }} - ${{ matrix.flavor.arch }}
+    runs-on: ${{ matrix.flavor.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.x'  # Latest version
+          - '1.9'  # Specific stable version for compatibility testing
+        flavor:
+          - {os: ubuntu-latest, arch: x64}  # Linux x64
+          - {os: macos-latest, arch: arm64}  # macOS ARM
+          - {os: windows-latest, arch: x64}  # Windows x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.flavor.arch }}
+
+      - uses: julia-actions/cache@v2
+        with:
+          cache-registries: "true"
+
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - uses: julia-actions/julia-runtest@v1
+
+      - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src
+
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+        continue-on-error: true  # Don't fail CI if codecov upload fails
