@@ -10,7 +10,7 @@ using DiscreteControllers
     measure_func = () -> measurement_data[]
     actuate_func = (signal) -> control_output_data[] = signal
 
-    @testset "Constructor" begin
+    @testset "Constructor with pid arg" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
         ctrl = DiscreteController(
@@ -22,7 +22,6 @@ using DiscreteControllers
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
@@ -33,18 +32,97 @@ using DiscreteControllers
         @test ctrl.monitor.update_count == 0
     end
 
-    @testset "Timing Management" begin
-        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
+    @testset "Constructors with Ts arg" begin
+        Ts = 0.01
 
         ctrl = DiscreteController(
-            pid;
+            Ts;
+            sp = 100.0,
+            name = "ctrl with Ts",
+            Ts = 0.01,
+            initial_time = 10.0
+        )
+
+        @test ctrl.sp == 100.0
+        @test ctrl.error == 100.0
+        @test ctrl.name == "ctrl with Ts"
+        @test ctrl.Ts == 0.01
+        @test ctrl.is_active == true
+        @test ctrl.monitor.update_count == 0
+    end
+
+    @testset "Constructor with types" begin
+        Ts = Float32(0.01)
+
+        ctrl = DiscreteController(
+            Ts;
+            K=2.5,
+            sp = 100.0
+        )
+
+        @test ctrl.pid.K === Float32(2.5)
+        @test ctrl.pid.umax === typemax(Float32)
+        @test ctrl.sp === Float32(100.0)
+
+        # When Ts is an Int, it should convert to Float64
+        Ts = 10
+        ctrl = DiscreteController(10)
+        @test ctrl.Ts === Float64(10.0)
+        @test ctrl.pid.Ts === Float64(10.0)
+    end
+
+    @testset "Constructor validation" begin
+        # zero or negative Ts should throw an error
+        @test_throws AssertionError ctrl = DiscreteController(0.0)
+        @test_throws AssertionError ctrl = DiscreteController(-0.1)
+        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=-0.01)
+        @test_throws AssertionError DiscreteController(pid)
+
+        # pid and Ts cannot be used together
+        Ts = 0.1
+        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.1)
+        @test_throws AssertionError DiscreteController(pid; Ts)
+        @test_throws AssertionError DiscreteController(Ts; pid)
+    end
+
+    @testset "Constructor with various keywords" begin
+        Ts = 0.1
+        ctrl = DiscreteController(
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
+            sp = 100.0,
+            name = "keyword_test",
+            external = ExternalInterface(
+                measure_process_variable = measure_func,
+                apply_manipulated_variable = actuate_func
+            ),
+            initial_time = 0.5
+        )
+
+        @test ctrl.sp == 100.0
+        @test ctrl.name == "keyword_test"
+        @test ctrl.Ts == Ts
+        @test ctrl.is_active == true
+        @test ctrl.pid.K == 1.0
+        @test ctrl.pid.umax == Inf
+        @test ctrl.pid.Ti == 2.0
+
+        @test ctrl.timing.current_time == 0.5
+        @test ctrl.timing.last_update_time == 0.5
+        @test ctrl.timing.next_scheduled_time == 0.6
+    end
+
+    @testset "Timing Management" begin
+        Ts = 0.01
+        ctrl = DiscreteController(
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "timing_test",
             external = ExternalInterface(
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
@@ -69,17 +147,16 @@ using DiscreteControllers
     end
 
     @testset "Control Logic" begin
-        pid = DiscretePID(K=2.0, Ti=1.0, Td=0.0, Ts=0.01)  # Simple P controller
-
+        Ts = 0.01
         ctrl = DiscreteController(
-            pid;
+            Ts;
+            K = 2.0, Ti = 1.0, Td = 0.0,
             sp = 100.0,
             name = "control_test",
             external = ExternalInterface(
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
@@ -93,17 +170,16 @@ using DiscreteControllers
     end
 
     @testset "Activation/Deactivation" begin
-        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
-
+        Ts = 0.01
         ctrl = DiscreteController(
-            pid;
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "activation_test",
             external = ExternalInterface(
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
@@ -128,17 +204,16 @@ using DiscreteControllers
     end
 
     @testset "Setpoint Changes" begin
-        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
-
+        Ts = 0.01
         ctrl = DiscreteController(
-            pid;
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "setpoint_test",
             external = ExternalInterface(
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
@@ -149,17 +224,16 @@ using DiscreteControllers
     end
 
     @testset "Reset Functionality" begin
-        pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
-
+        Ts = 0.01
         ctrl = DiscreteController(
-            pid;
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "reset_test",
             external = ExternalInterface(
                 measure_process_variable = measure_func,
                 apply_manipulated_variable = actuate_func
             ),
-            Ts = 0.01,
             initial_time = 0.0
         )
 
