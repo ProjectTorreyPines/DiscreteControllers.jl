@@ -32,7 +32,7 @@ using DiscreteControllers
         @test ctrl.monitor.update_count == 0
     end
 
-    @testset "Constructors with Ts arg" begin
+    @testset "Constructor with Ts arg" begin
         Ts = 0.01
 
         ctrl = DiscreteController(
@@ -108,7 +108,7 @@ using DiscreteControllers
         @test ctrl.pid.Ti == 2.0
 
         @test ctrl.timing.current_time == 0.5
-        @test ctrl.timing.last_update_time == 0.5
+        @test ctrl.timing.last_update_time == -Inf # not yet updated
         @test ctrl.timing.next_scheduled_time == 0.6
     end
 

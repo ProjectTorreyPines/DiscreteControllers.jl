@@ -15,9 +15,10 @@ This module defines all the core types used in the discrete control system:
 Internal structure for managing controller timing and scheduling.
 """
 @kwdef mutable struct TimingManager{FT<:AbstractFloat}
-    current_time::FT = zero(FT)          # Current simulation time [s]
-    last_update_time::FT = zero(FT)     # Last control update time [s]
-    next_scheduled_time::FT = zero(FT)  # Next scheduled update time [s]
+    initial_time::FT = zero(FT)         # Initial time for the controller [s]
+    current_time::FT = initial_time     # Current simulation time [s]
+    next_scheduled_time::FT             # Next scheduled update time [s] (no default, must be set)
+    last_update_time::FT = typemin(FT)  # Last control update time [s] (default to -Inf, meaning not yet updated)
     tolerance::FT = FT(1e-6)            # Timing relative tolerance for sampling
 end
 
@@ -135,7 +136,7 @@ end
     external::ExternalInterface = ExternalInterface()
 
     # Internal management structures
-    timing::TimingManager{FT} = TimingManager{FT}()
+    timing::TimingManager{FT}  # No default - must be set in constructor
     monitor::PerformanceMonitor = PerformanceMonitor()
 
     # Logging (always available, flag controls usage)
@@ -151,15 +152,18 @@ function DiscreteController(pid::DiscretePID{FT};
 ) where {FT<:AbstractFloat}
     @assert pid.Ts > 0 "Sample time Ts must be positive"
     @assert !haskey(kwargs, :Ts) "Cannot specify Ts when providing a DiscretePID (PID already has Ts=$(pid.Ts))"
+    @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
     # Convert inputs to appropriate types
     Ts = pid.Ts
+
     return DiscreteController{FT}(;
         Ts, pid,
         timing = TimingManager{FT}(
+            initial_time = FT(initial_time),
             current_time = FT(initial_time),
-            last_update_time = FT(initial_time),
-            next_scheduled_time = FT(initial_time + Ts)
+            next_scheduled_time = FT(initial_time + Ts),  # First update at initial_time + Ts
+            last_update_time = typemin(FT)
         ),
         kwargs...
     )
@@ -172,14 +176,16 @@ function DiscreteController(Ts::FT;
 ) where {FT<:AbstractFloat}
     @assert Ts > 0 "Sample time Ts must be positive"
     @assert !haskey(kwargs, :pid) "Cannot specify pid when providing Ts (use DiscreteController(pid; ...) instead)"
+    @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
     # Filter kwargs based on field names
     pid_fields = Set(fieldnames(DiscretePID{FT}))
     controller_fields = Set(fieldnames(DiscreteController{FT}))
 
     # Separate kwargs using filter and set membership
-    pid_kwargs = filter(p -> first(p) ∈ pid_fields, kwargs)
-    controller_kwargs = filter(p -> first(p) ∈ controller_fields, kwargs)
+    # Ensure we always get Dict{Symbol, Any} to avoid Union{} type issues
+    pid_kwargs = Dict{Symbol, Any}(filter(p -> first(p) ∈ pid_fields, kwargs))
+    controller_kwargs = Dict{Symbol, Any}(filter(p -> first(p) ∈ controller_fields, kwargs))
 
     # Convert pid_kwargs values to FT type for numeric fields
     pid_kwargs_converted = Dict{Symbol, Any}(
@@ -193,9 +199,10 @@ function DiscreteController(Ts::FT;
     return DiscreteController{FT}(;
         Ts, pid,
         timing = TimingManager{FT}(
+            initial_time = FT(initial_time),
             current_time = FT(initial_time),
-            last_update_time = FT(initial_time),
-            next_scheduled_time = FT(initial_time + Ts)
+            next_scheduled_time = FT(initial_time + Ts),  # First update at initial_time + Ts
+            last_update_time = typemin(FT)
         ),
         controller_kwargs...
     )
