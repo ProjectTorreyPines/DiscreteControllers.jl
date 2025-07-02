@@ -58,7 +58,7 @@ function update_controller!(
 
     # Check if sampling time has arrived
     # Use next_scheduled_time for more precise timing control
-    should_update = new_time >= (ctrl.timing.next_scheduled_time - ctrl.timing.tolerance)
+    should_update = new_time >= (ctrl.timing.next_scheduled_time - ctrl.timing.tolerance * ctrl.Ts)
 
     if should_update
         try
