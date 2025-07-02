@@ -19,17 +19,15 @@ using DiscreteControllers
         end
 
         # Create PID ctrl for temperature (more aggressive tuning)
-        pid = DiscretePID(K=10.0, Ti=5.0, Td=0.5, Ts=0.1)  # 100ms sampling
-
         ctrl = DiscreteController(
-            pid;
+            0.1;  # 100ms sampling
+            K=10.0, Ti=5.0, Td=0.5,
             sp = 60.0,  # Target temperature: 60°C
             name = "temperature_controller",
             external = ExternalInterface(
                 measure_process_variable = measure_temp,
                 apply_manipulated_variable = set_heater
             ),
-            Ts = 0.1,
             enable_logging = true
         )
 
@@ -85,17 +83,15 @@ using DiscreteControllers
         end
 
         # Create speed ctrl (more aggressive)
-        pid = DiscretePID(K=2.0, Ti=1.0, Td=0.02, Ts=0.01)  # 10ms sampling
-
         ctrl = DiscreteController(
-            pid;
+            0.01;  # 10ms sampling
+            K=2.0, Ti=1.0, Td=0.02,
             sp = 1000.0,  # Target: 1000 RPM
             name = "speed_controller",
             external = ExternalInterface(
                 measure_process_variable = measure_speed,
                 apply_manipulated_variable = set_voltage
             ),
-            Ts = 0.01,
             enable_logging = true
         )
 
@@ -149,17 +145,15 @@ using DiscreteControllers
         end
 
         # Pressure ctrl (more aggressive)
-        pid = DiscretePID(K=20.0, Ti=3.0, Td=0.1, Ts=0.05)  # 50ms sampling
-
         ctrl = DiscreteController(
-            pid;
+            0.05;  # 50ms sampling
+            K=20.0, Ti=3.0, Td=0.1,
             sp = 6.0,  # Target: 6 bar
             name = "pressure_controller",
             external = ExternalInterface(
                 measure_process_variable = measure_pressure,
                 apply_manipulated_variable = set_valve
             ),
-            Ts = 0.05,
             enable_logging = true
         )
 
@@ -186,20 +180,18 @@ using DiscreteControllers
 
     @testset "Controller Management Functions" begin
         # Test all the basic functions with a simple example
-        pid = DiscretePID(K=1.0, Ti=1.0, Td=0.1, Ts=0.1)
-
         value = Ref(0.0)
         output = Ref(0.0)
 
         ctrl = DiscreteController(
-            pid;
+            0.1;  # 100ms sampling
+            K=1.0, Ti=1.0, Td=0.1,
             sp = 10.0,
             name = "test_mgmt",
             external = ExternalInterface(
                 measure_process_variable = () -> value[],
                 apply_manipulated_variable = (u) -> output[] = u
             ),
-            Ts = 0.1,
             enable_logging = true
         )
 
