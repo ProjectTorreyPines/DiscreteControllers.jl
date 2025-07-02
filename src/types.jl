@@ -18,7 +18,7 @@ Internal structure for managing controller timing and scheduling.
     current_time::FT = zero(FT)          # Current simulation time [s]
     last_update_time::FT = zero(FT)     # Last control update time [s]
     next_scheduled_time::FT = zero(FT)  # Next scheduled update time [s]
-    const tolerance::FT = FT(1e-6)      # Timing tolerance for sampling
+    tolerance::FT = FT(1e-6)            # Timing relative tolerance for sampling
 end
 
 """

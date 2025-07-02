@@ -14,7 +14,7 @@ This module implements the main control logic and state management:
 Update a discrete controller to a new simulation time.
 
 The controller will only perform a control update if sufficient time has passed
-since the last update (≥ Ts - tolerance). This ensures proper discrete-time
+since the last update (≥ Ts - tolerance*Ts). This ensures proper discrete-time
 behavior with accurate sampling.
 
 # Arguments
@@ -287,11 +287,15 @@ end
 """
     set_timing_tolerance!(ctrl::DiscreteController, tolerance::Real)
 
-Set the timing tolerance for sampling decisions.
+Set the relative timing tolerance for sampling decisions.
+
+The tolerance is used as a fraction of the sampling time (Ts) to determine
+when a control update should occur. The controller will update when:
+current_time ≥ next_scheduled_time - tolerance * Ts
 
 # Arguments
 - `ctrl::DiscreteController`: The controller to modify
-- `tolerance::Real`: New timing tolerance value
+- `tolerance::Real`: New relative timing tolerance (typically 0.0 to 1.0)
 """
 function set_timing_tolerance!(ctrl::DiscreteController{FT}, tolerance::Real) where {FT<:AbstractFloat}
     ctrl.timing.tolerance = FT(tolerance)

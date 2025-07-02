@@ -253,4 +253,95 @@ using DiscreteControllers
         @test ctrl.timing.last_update_time == 1.0
         @test ctrl.timing.next_scheduled_time == 1.01
     end
+
+    @testset "Setter and Getter Functions" begin
+        # Create a basic controller for testing
+        ctrl = DiscreteController(
+            0.01;
+            K = 1.0, Ti = 2.0, Td = 0.1,
+            sp = 100.0,
+            name = "setter_getter_test",
+            initial_time = 0.0
+        )
+
+        # Test initial values
+        @test get_setpoint(ctrl) === 100.0
+        @test get_pv(ctrl) === 0.0
+        @test get_mv(ctrl) === 0.0
+        @test get_error(ctrl) === 100.0  # sp - pv = 100 - 0
+        @test get_update_count(ctrl) === 0
+        @test get_missed_deadlines(ctrl) === 0
+        @test get_sampling_time(ctrl) === 0.01
+        @test is_active(ctrl) === true
+
+        # Test setpoint setter and getter
+        set_setpoint!(ctrl, 150.0)
+        @test get_setpoint(ctrl) === 150.0
+        @test ctrl.sp === 150.0
+        @test get_error(ctrl) === 150.0  # Error should update automatically
+
+        # Test PV setter and getter
+        set_pv!(ctrl, 50.0)
+        @test get_pv(ctrl) === 50.0
+        @test ctrl.pv === 50.0
+        @test get_error(ctrl) === 100.0  # 150 - 50
+
+        # Test with different numeric types
+        set_setpoint!(ctrl, 200)  # Int
+        @test get_setpoint(ctrl) === 200.0
+
+        set_pv!(ctrl, 75.5f0)  # Float32
+        @test get_pv(ctrl) === 75.5
+        @test get_error(ctrl) === 124.5  # 200 - 75.5
+
+        # Test MV and update count after a control update
+        measurement_data = Ref(75.5)
+        ctrl.external.measure_process_variable = () -> measurement_data[]
+
+        # Run one control update
+        result = update_controller!(ctrl, 0.01)
+        @test result === true
+        @test get_update_count(ctrl) === 1
+        @test get_mv(ctrl) !== 0.0  # Should have some control output
+
+        # Test timing functions
+        @test time_until_next_update(ctrl) ≈ 0.01  # Should be approximately Ts
+
+        # Test timing tolerance
+        original_tolerance = ctrl.timing.tolerance
+        set_timing_tolerance!(ctrl, 1e-9)
+        @test ctrl.timing.tolerance === 1e-9
+        set_timing_tolerance!(ctrl, original_tolerance)  # Reset
+
+        # Test activation/deactivation
+        @test is_active(ctrl) === true
+        deactivate!(ctrl)
+        @test is_active(ctrl) === false
+        activate!(ctrl)
+        @test is_active(ctrl) === true
+
+        # Test missed deadlines (simulate error condition)
+        # Temporarily break the measurement function to cause an error
+        ctrl.external.measure_process_variable = () -> error("Simulated sensor failure")
+
+        # Use @test_logs to capture the expected error message and suppress it from output
+        result = @test_logs (:error, r"Controller update failed") match_mode=:any begin
+            update_controller!(ctrl, 0.02)
+        end
+
+        @test result === false
+        @test get_missed_deadlines(ctrl) === 1
+
+        # Fix the measurement function
+        ctrl.external.measure_process_variable = () -> measurement_data[]
+
+        # Test reset functionality
+        reset!(ctrl, 5.0)
+        @test get_update_count(ctrl) === 0
+        @test get_missed_deadlines(ctrl) === 0
+        @test ctrl.timing.current_time === 5.0
+        @test get_mv(ctrl) === 0.0
+        @test get_pv(ctrl) === 0.0
+        @test get_error(ctrl) === get_setpoint(ctrl)  # sp - 0
+    end
 end
