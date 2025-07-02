@@ -13,8 +13,9 @@ using DiscreteControllers
     @testset "Constructor" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid
+            ;
             sp = 100.0,
             name = "test_controller",
             external = ExternalInterface(
@@ -35,8 +36,8 @@ using DiscreteControllers
     @testset "Timing Management" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 100.0,
             name = "timing_test",
             external = ExternalInterface(
@@ -70,8 +71,8 @@ using DiscreteControllers
     @testset "Control Logic" begin
         pid = DiscretePID(K=2.0, Ti=1.0, Td=0.0, Ts=0.01)  # Simple P controller
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 100.0,
             name = "control_test",
             external = ExternalInterface(
@@ -94,8 +95,8 @@ using DiscreteControllers
     @testset "Activation/Deactivation" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 100.0,
             name = "activation_test",
             external = ExternalInterface(
@@ -129,8 +130,8 @@ using DiscreteControllers
     @testset "Setpoint Changes" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 100.0,
             name = "setpoint_test",
             external = ExternalInterface(
@@ -150,8 +151,8 @@ using DiscreteControllers
     @testset "Reset Functionality" begin
         pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 100.0,
             name = "reset_test",
             external = ExternalInterface(

@@ -21,8 +21,8 @@ using DiscreteControllers
         # Create PID ctrl for temperature (more aggressive tuning)
         pid = DiscretePID(K=10.0, Ti=5.0, Td=0.5, Ts=0.1)  # 100ms sampling
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 60.0,  # Target temperature: 60°C
             name = "temperature_controller",
             external = ExternalInterface(
@@ -87,8 +87,8 @@ using DiscreteControllers
         # Create speed ctrl (more aggressive)
         pid = DiscretePID(K=2.0, Ti=1.0, Td=0.02, Ts=0.01)  # 10ms sampling
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 1000.0,  # Target: 1000 RPM
             name = "speed_controller",
             external = ExternalInterface(
@@ -151,8 +151,8 @@ using DiscreteControllers
         # Pressure ctrl (more aggressive)
         pid = DiscretePID(K=20.0, Ti=3.0, Td=0.1, Ts=0.05)  # 50ms sampling
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 6.0,  # Target: 6 bar
             name = "pressure_controller",
             external = ExternalInterface(
@@ -191,8 +191,8 @@ using DiscreteControllers
         value = Ref(0.0)
         output = Ref(0.0)
 
-        ctrl = DiscreteController(;
-            pid = pid,
+        ctrl = DiscreteController(
+            pid;
             sp = 10.0,
             name = "test_mgmt",
             external = ExternalInterface(

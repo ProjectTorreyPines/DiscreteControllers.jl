@@ -14,11 +14,11 @@ This module defines all the core types used in the discrete control system:
 
 Internal structure for managing controller timing and scheduling.
 """
-mutable struct TimingManager{FT<:AbstractFloat}
-    current_time::FT          # Current simulation time [s]
-    last_update_time::FT      # Last control update time [s]
-    next_scheduled_time::FT   # Next scheduled update time [s]
-    const tolerance::FT       # Timing tolerance for sampling
+@kwdef mutable struct TimingManager{FT<:AbstractFloat}
+    current_time::FT = zero(FT)          # Current simulation time [s]
+    last_update_time::FT = zero(FT)     # Last control update time [s]
+    next_scheduled_time::FT = zero(FT)  # Next scheduled update time [s]
+    const tolerance::FT = FT(1e-6)      # Timing tolerance for sampling
 end
 
 """
@@ -26,9 +26,9 @@ end
 
 Internal structure for tracking controller performance metrics.
 """
-mutable struct PerformanceMonitor
-    update_count::Int         # Total updates performed
-    missed_deadlines::Int     # Missed sampling deadlines
+@kwdef mutable struct PerformanceMonitor
+    update_count::Int = 0        # Total updates performed
+    missed_deadlines::Int = 0    # Missed sampling deadlines
 end
 
 """
@@ -36,15 +36,13 @@ end
 
 Simple internal logger for collecting controller data over time.
 """
-mutable struct Logger{FT<:AbstractFloat}
-    timestamps::Vector{FT}
-    setpoints::Vector{FT}
-    process_variables::Vector{FT}
-    manipulated_variables::Vector{FT}
-    errors::Vector{FT}
-    update_counts::Vector{Int}
-
-    Logger{FT}() where {FT<:AbstractFloat} = new{FT}(FT[], FT[], FT[], FT[], FT[], Int[])
+@kwdef mutable struct Logger{FT<:AbstractFloat}
+    timestamps::Vector{FT} = FT[]
+    setpoints::Vector{FT} = FT[]
+    process_variables::Vector{FT} = FT[]
+    manipulated_variables::Vector{FT} = FT[]
+    errors::Vector{FT} = FT[]
+    update_counts::Vector{Int} = Int[]
 end
 
 """
@@ -53,19 +51,13 @@ end
 Interface functions for connecting the controller to external systems.
 Groups all I/O functions together for better organization.
 """
-mutable struct ExternalInterface
+@kwdef mutable struct ExternalInterface
     # Input functions (called before control calculation)
-    measure_process_variable::Union{Function, Nothing}  # () -> Real - read sensor/measurement
-    set_setpoint::Union{Function, Nothing}              # () -> Real - get reference/setpoint
+    measure_process_variable::Union{Function, Nothing} = nothing # () -> Real - read sensor/measurement
+    set_setpoint::Union{Function, Nothing} = nothing              # () -> Real - get reference/setpoint
 
     # Output functions (called after control calculation)
-    apply_manipulated_variable::Union{Function, Nothing} # (mv::Real) -> nothing - send to actuator
-
-    ExternalInterface(;
-        measure_process_variable::Union{Function, Nothing} = nothing,
-        set_setpoint::Union{Function, Nothing} = nothing,
-        apply_manipulated_variable::Union{Function, Nothing} = nothing
-    ) = new(measure_process_variable, set_setpoint, apply_manipulated_variable)
+    apply_manipulated_variable::Union{Function, Nothing} = nothing # (mv::Real) -> nothing - send to actuator
 end
 
 """
@@ -124,65 +116,85 @@ for t in 0:0.001:10  # 1ms simulation steps
 end
 ```
 """
-mutable struct DiscreteController{FT<:AbstractFloat}
+@kwdef mutable struct DiscreteController{FT<:AbstractFloat}
     # Core identification and control
-    name::String
+    name::String = ""
+    is_active::Bool = true          # Controller enable/disable state
+
     const Ts::FT              # Sample time (immutable)
-    is_active::Bool           # Controller enable/disable state
     pid::DiscretePID{FT}
 
     # Process variables (always stored as values for consistency)
-    sp::FT                    # Setpoint
-    pv::FT                    # Process variable (measurement)
-    error::FT                 # Control error (sp - pv)
-    mv::FT                    # Manipulated variable (control output)
+    sp::FT = zero(FT)                   # Setpoint
+    pv::FT = zero(FT)                   # Process variable (measurement)
+    error::FT = sp - pv                 # Control error (sp - pv)
+    mv::FT = zero(FT)                   # Manipulated variable (control output)
 
     # Optional functions for external system integration
     # These are called at specific points in the control loop if provided
-    external::ExternalInterface
+    external::ExternalInterface = ExternalInterface()
 
     # Internal management structures
-    timing::TimingManager{FT}
-    monitor::PerformanceMonitor
+    timing::TimingManager{FT} = TimingManager{FT}()
+    monitor::PerformanceMonitor = PerformanceMonitor()
 
     # Logging (always available, flag controls usage)
-    enable_logging::Bool
-    logger::Logger{FT}
-
-    function DiscreteController{FT}(;
-        pid::DiscretePID{FT},
-        sp::Real,
-        name::String,
-        Ts::Real,
-        pv::Real = 0.0,
-        initial_time::Real = 0.0,
-        is_active::Bool = true,
-        timing_tolerance::Real = 1e-12,
-        external::ExternalInterface = ExternalInterface(),
-        enable_logging::Bool = false
-    ) where {FT<:AbstractFloat}
-        @assert Ts > 0 "Sample time Ts must be positive"
-        @assert Ts == pid.Ts "Controller's sample time (Ts=$(Ts)) must match PID sample time=$(pid.Ts)"
-
-        # Convert inputs to appropriate types
-        sp_val = FT(sp)
-        pv_val = FT(pv)
-        Ts_val = FT(Ts)
-
-        new{FT}(
-            name, Ts_val, is_active, pid,
-            sp_val, pv_val, sp_val - pv_val, FT(0.0),
-            external,
-            TimingManager{FT}(
-                FT(initial_time), FT(initial_time),
-                FT(initial_time + Ts_val), FT(timing_tolerance)
-            ),
-            PerformanceMonitor(0, 0),
-            enable_logging,
-            Logger{FT}()
-        )
-    end
+    enable_logging::Bool = true
+    logger::Logger{FT} = Logger{FT}()
 end
 
-# Convenience constructor for Float64
-DiscreteController(args...; kwargs...) = DiscreteController{Float64}(args...; kwargs...)
+
+# Constructor with a given DiscretePID
+function DiscreteController(pid::DiscretePID{FT};
+    initial_time::Real = 0.0,
+    kwargs...
+) where {FT<:AbstractFloat}
+    @assert pid.Ts > 0 "Sample time Ts must be positive"
+
+    # Convert inputs to appropriate types
+    Ts = pid.Ts
+    return DiscreteController{FT}(;
+        Ts, pid,
+        timing = TimingManager{FT}(
+            current_time = FT(initial_time),
+            last_update_time = FT(initial_time),
+            next_scheduled_time = FT(initial_time + Ts)
+        ),
+        kwargs...
+    )
+end
+
+# Constructor with a given sampling time Ts
+function DiscreteController(Ts::FT;
+    initial_time::Real = 0.0,
+    kwargs...
+) where {FT<:AbstractFloat}
+    @assert Ts > 0 "Sample time Ts must be positive"    # Get field names for both types to separate kwargs
+
+    # Filter kwargs based on field names
+    pid_fields = Set(fieldnames(DiscretePID{FT}))
+    controller_fields = Set(fieldnames(DiscreteController{FT}))
+
+    # Separate kwargs using filter and set membership
+    pid_kwargs = filter(p -> first(p) ∈ pid_fields, kwargs)
+    controller_kwargs = filter(p -> first(p) ∈ controller_fields, kwargs)
+
+    # Convert pid_kwargs values to FT type for numeric fields
+    pid_kwargs_converted = Dict{Symbol, Any}(
+        k => (v isa Real ? FT(v) : v) for (k, v) in pid_kwargs
+    )
+
+    # Create DiscretePID with PID-specific parameters and kwargs
+    pid = DiscretePID(; Ts, pid_kwargs_converted...)
+
+    # Create DiscreteController with controller-specific kwargs
+    return DiscreteController{FT}(;
+        Ts, pid,
+        timing = TimingManager{FT}(
+            current_time = FT(initial_time),
+            last_update_time = FT(initial_time),
+            next_scheduled_time = FT(initial_time + Ts)
+        ),
+        controller_kwargs...
+    )
+end
