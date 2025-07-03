@@ -154,6 +154,10 @@ function DiscreteController(pid::DiscretePID{FT};
     @assert !haskey(kwargs, :Ts) "Cannot specify Ts when providing a DiscretePID (PID already has Ts=$(pid.Ts))"
     @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
+    # Convert kwargs to mutable dict and validate/set initial state with external interface
+    kwargs = Dict{Symbol, Any}(kwargs)
+    validate_and_set_initial_state_with_external!(kwargs, initial_time)
+
     # Convert inputs to appropriate types
     Ts = pid.Ts
 
@@ -178,14 +182,17 @@ function DiscreteController(Ts::FT;
     @assert !haskey(kwargs, :pid) "Cannot specify pid when providing Ts (use DiscreteController(pid; ...) instead)"
     @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
+    # Convert kwargs to mutable dict and validate/set initial state with external interface
+    kwargs = Dict{Symbol, Any}(kwargs)
+    validate_and_set_initial_state_with_external!(kwargs, initial_time)
+
     # Filter kwargs based on field names
     pid_fields = Set(fieldnames(DiscretePID{FT}))
     controller_fields = Set(fieldnames(DiscreteController{FT}))
 
     # Separate kwargs using filter and set membership
-    # Ensure we always get Dict{Symbol, Any} to avoid Union{} type issues
-    pid_kwargs = Dict{Symbol, Any}(filter(p -> first(p) ∈ pid_fields, kwargs))
-    controller_kwargs = Dict{Symbol, Any}(filter(p -> first(p) ∈ controller_fields, kwargs))
+    pid_kwargs = filter(p -> first(p) ∈ pid_fields, kwargs)
+    controller_kwargs = filter(p -> first(p) ∈ controller_fields, kwargs)
 
     # Convert pid_kwargs values to FT type for numeric fields
     pid_kwargs_converted = Dict{Symbol, Any}(
@@ -211,4 +218,38 @@ end
 # Convenience constructors for common use cases
 function DiscreteController(Ts::Int; kwargs...)
     return DiscreteController(Float64(Ts); kwargs...)
+end
+
+"""
+    validate_and_set_initial_state_with_external!(kwargs_dict, initial_time)
+
+Helper function to validate and set initial state (sp, pv) when external interface is provided.
+Modifies kwargs_dict in-place to add sp and/or pv if they are not provided but external functions exist.
+"""
+function validate_and_set_initial_state_with_external!(kwargs_dict::Dict{Symbol, Any}, initial_time::Real)
+    if haskey(kwargs_dict, :external)
+        external = kwargs_dict[:external]
+
+        @assert external isa ExternalInterface "external must be an instance of ExternalInterface"
+
+        # Handle setpoint
+        if !isnothing(external.set_setpoint)
+            if haskey(kwargs_dict, :sp)
+                external_sp = external.set_setpoint(initial_time)
+                @assert kwargs_dict[:sp] == external_sp "Given initial setpoint sp ($(kwargs_dict[:sp])) must match external setpoint function output ($(external_sp))"
+            else
+                kwargs_dict[:sp] = external.set_setpoint(initial_time)
+            end
+        end
+
+        # Handle process variable
+        if !isnothing(external.measure_process_variable)
+            if haskey(kwargs_dict, :pv)
+                external_pv = external.measure_process_variable()
+                @assert kwargs_dict[:pv] == external_pv "Given initial process variable pv ($(kwargs_dict[:pv])) must match external measurement ($(external_pv))"
+            else
+                kwargs_dict[:pv] = external.measure_process_variable()
+            end
+        end
+    end
 end
