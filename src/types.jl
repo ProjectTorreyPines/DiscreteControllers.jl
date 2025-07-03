@@ -104,6 +104,12 @@ ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
     error::FT = sp - pv                 # Control error (sp - pv)
     mv::FT = NaN                        # Manipulated variable (control output)
 
+    # optional names, which can be used for logging and display
+    pv_name::String = "Process Variable"  # Name for process variable
+    pv_unit::String = ""  # Unit for process variable
+    mv_name::String = "Manipulated Variable"  # Name for manipulated variable
+    mv_unit::String = ""  # Unit for manipulated variable
+
     # Optional functions for system_interface system integration
     # These are called at specific points in the control loop if provided
     system_interface::SystemInterface = SystemInterface()

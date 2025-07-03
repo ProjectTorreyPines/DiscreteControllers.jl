@@ -99,7 +99,10 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
     scale_factor, time_unit = get_time_scale_info(timescale)
     scaled_timestamps = ctrl.logger.timestamps .* scale_factor
 
-    title --> "Setpoint"
+    pv_name = isempty(ctrl.pv_name) ? "Process Variable" : ctrl.pv_name
+    pv_name_with_unit = isempty(ctrl.pv_unit) ? pv_name : "$(pv_name) [$(ctrl.pv_unit)]"
+
+    title --> pv_name_with_unit
     xlabel --> "Time [$(time_unit)]"
     ylabel --> "Value"
 
@@ -129,12 +132,16 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
     scale_factor, time_unit = get_time_scale_info(timescale)
     scaled_timestamps = ctrl.logger.timestamps .* scale_factor
 
-    title --> "Process Variable"
+    pv_name = isempty(ctrl.pv_name) ? "Process Variable" : ctrl.pv_name
+    pv_name_with_unit = isempty(ctrl.pv_unit) ? pv_name : "$(pv_name) [$(ctrl.pv_unit)]"
+
+    title --> pv_name_with_unit
+
     xlabel --> "Time [$(time_unit)]"
     ylabel --> "Value"
 
     @series begin
-        label --> "Process Variable"
+        label --> pv_name
         color --> :red
         linewidth --> 2
         alpha --> 0.8
@@ -157,7 +164,10 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
         return
     end
 
-    title := "Setpoint Tracking Performance"
+    pv_name = isempty(ctrl.pv_name) ? "Process Variable" : ctrl.pv_name
+    pv_name_with_unit = isempty(ctrl.pv_unit) ? pv_name : "$(pv_name) [$(ctrl.pv_unit)]"
+
+    title := pv_name_with_unit
     ylabel --> "Value"
 
     # Plot setpoint - calls plot_setpoint recipe
@@ -224,9 +234,12 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
     timescale = get(plotattributes, :timescale, :s)
     scale_factor, time_unit = get_time_scale_info(timescale)
 
-    title --> "Manipulated Variable (Discrete)"
+    mv_name = isempty(ctrl.mv_name) ? "Control Output" : ctrl.mv_name
+    mv_name_with_unit = isempty(ctrl.mv_unit) ? mv_name : "$(mv_name) [$(ctrl.mv_unit)]"
+
+    title --> mv_name_with_unit
     xlabel --> "Time [$(time_unit)]"
-    ylabel --> "MV"
+    ylabel --> "Value"
 
     # Calculate step-like data for discrete control output
     if length(ctrl.logger.timestamps) > 1
@@ -246,7 +259,7 @@ Supports timescale keyword: :s, :ms, :us (or :μs)
     end
 
     @series begin
-        label := "Control Output"
+        label := mv_name
         color := :blue
         linewidth := 2
         step_times, step_values
