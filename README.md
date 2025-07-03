@@ -5,7 +5,7 @@
 
 A lightweight Julia package for discrete-time controllers with autonomous timing management, built-in logging, and optional plotting capabilities.
 
-Built on top of [DiscretePIDs.jl](https://github.com/DiscretePIDs/DiscretePIDs.jl) to provide:
+Built on top of [DiscretePIDs.jl](https://github.com/JuliaControl/DiscretePIDs.jl) to provide:
 - **Autonomous timing management** - Controllers handle their own sampling time automatically
 - **Built-in logging** - Automatic data collection during control updates
 - **Flexible construction** - Create controllers with PID parameters or existing DiscretePID objects
@@ -20,39 +20,101 @@ Pkg.add("DiscreteControllers")
 
 ## Quick Start
 
+### Example 1: Basic Usage
+
 ```julia
 using DiscreteControllers
+
+# Your plant initialization
+plant = construct_plant_system()  # Initialize your thermal system
+
+# Define constant target temperature (setpoint)
+target_temperature = 30.0
 
 # Create discrete controller with PID parameters
 ctrl = DiscreteController(
     0.01;  # Sampling time: 10ms
     K=1.0, Ti=2.0, Td=0.1,  # PID parameters
-    sp=100.0,  # Setpoint
-    name="temperature_controller"
+    sp = target_temperature,  # Setpoint
+    name = "temperature_controller"
 )
 
-# With system_interface interface for automatic measurement/actuation
-ctrl = DiscreteController(
-    0.01;
-    K=1.0, Ti=2.0, Td=0.1,
-    sp=100.0,
-    system_interface=SystemInterface(
-        read_process_var = () -> read_sensor(),
-        apply_control_signal = (signal) -> set_actuator(signal)
-    )
-)
+# Manual simulation loop - you handle measurements and actuation
+dt = 1e-3 # 1ms simulation step
+for t in 0:dt:10
+    # Your plant simulation continues independently
+    simulate_plant_step!(plant, dt)
 
-# In simulation loop
-for t in 0:0.001:10  # 1ms simulation steps
+    current_temperature = get_temperature(plant)
+
+    # Update controller with current measurement
+    set_pv!(ctrl, current_temperature)
+
     # Controller automatically manages timing - only updates every 10ms
     was_updated = update_controller!(ctrl, t)
 
     if was_updated
         println("Controller updated at time $t")
+        println("Control output: $(ctrl.mv)")
+
+        # You manually apply the control signal
+        heater_power = ctrl.mv
+        set_heater_power!(plant, heater_power)  # Your function to control heater
     end
 end
+```
 
-# Export logged data
+### Example 2: Advanced usage with SystemInterface
+
+```julia
+using DiscreteControllers
+
+# Your plant initialization
+plant = construct_plant_system()  # Initialize your thermal system
+
+# Define your system interface functions
+scheduled_temperature(time) = time < 5.0 ? 10.0 : 25.0  # Step change at t=5s
+
+# Create controller with automatic system interface
+ctrl = DiscreteController(
+    0.01;  # 10ms sampling time
+    K=1.0, Ti=2.0, Td=0.1,
+    system_interface=SystemInterface(
+        # Read setpoint from a schedule (time-varying setpoint)
+        read_setpoint = scheduled_temperature,
+        # Read current measurement from sensor/plant
+        read_process_var = () -> get_temperature(plant),
+        # Send control signal to actuator/plant
+        apply_control_signal = (power) -> set_heater_power!(plant, power)
+    )
+)
+
+# Fully automatic simulation loop
+dt = 1e-3 # 1ms simulation step
+for t in 0:dt:10
+    # Your plant simulation continues independently
+    simulate_plant_step!(plant, dt)
+
+    # Controller handles everything automatically when updated:
+    # - Reads setpoint from schedule
+    # - Reads temperature from sensor
+    # - Computes PID control
+    # - Sends signal to heater
+    was_updated = update_controller!(ctrl, t)
+
+    if was_updated
+        println("Controller updated at t=$t: SP=$(ctrl.sp), PV=$(ctrl.pv), MV=$(ctrl.mv)")
+    end
+end
+```
+
+### Data Export and Visualization
+
+```julia
+# Show current status of controller
+show(ctrl)
+
+# Export logged data for both examples
 export_log(ctrl, "controller_data.csv")
 
 # Visualize logged data (optional)
