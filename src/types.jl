@@ -64,57 +64,33 @@ end
 """
     DiscreteController{FT<:AbstractFloat}
 
-A self-contained discrete controller that manages its own sampling timing.
+Discrete controller with autonomous timing management and built-in logging.
 
 # Fields
-- `name::String`: Name/identifier for this controller
-- `Ts::FT`: Sample time (immutable, must be set at construction) [s]
-- `pid::DiscretePID{FT}`: The underlying discrete PID controller
-- `sp::FT`: Current setpoint value
-- `pv::FT`: Current process variable (measured value)
+- `name::String`: Controller identifier
+- `Ts::FT`: Sample time [s] (immutable)
+- `pid::DiscretePID{FT}`: Underlying PID controller
+- `sp::FT`: Current setpoint
+- `pv::FT`: Current process variable
 - `error::FT`: Current control error (sp - pv)
-- `mv::FT`: Current manipulated variable (control output)
-- `measure_process_variable::Union{Function, Nothing}`: Optional function to read PV `() -> Real`
-- `set_setpoint::Union{Function, Nothing}`: Optional function to get setpoint `() -> Real`
-- `apply_manipulated_variable::Union{Function, Nothing}`: Optional function to apply MV `(mv::Real) -> nothing`
-- `timing::TimingManager{FT}`: Timing and scheduling management
-- `monitor::PerformanceMonitor`: Performance monitoring metrics
-- `enable_logging::Bool`: Whether to log data during control updates (every Ts)
-- `logger::Logger{FT}`: Logger for control updates (every Ts)
+- `mv::FT`: Current manipulated variable
+- `external::ExternalInterface`: Optional I/O callbacks
+- `timing::TimingManager{FT}`: Timing management
+- `monitor::PerformanceMonitor`: Performance metrics
+- `enable_logging::Bool`: Logging enable flag
+- `logger::Logger{FT}`: Data logger
 
-# Example
+# Examples
 ```julia
-using DiscretePIDs, DiscreteControllers
+# With PID parameters
+ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, Td=0.1, sp=100.0)
 
-# Create underlying PID
-pid = DiscretePID(K=1.0, Ti=2.0, Td=0.1, Ts=0.01)
-
-# Create discrete controller with value-based interface
-ctrl = DiscreteController(;
-    pid = pid,
-    sp = 100.0,
-    name = "temperature",
-    Ts = 0.01,  # 10ms sampling
-    initial_time = 0.0
-)
-
-# Or with callback-based interface
-ctrl = DiscreteController(;
-    pid = pid,
-    sp = 100.0,
-    name = "temperature",
-    Ts = 0.01,
-    external = ExternalInterface(
-        measure_process_variable = () -> read_temperature(),
-        apply_manipulated_variable = (mv) -> set_heater_power(mv)
-    ),
-    initial_time = 0.0
-)
-
-# In simulation loop
-for t in 0:0.001:10  # 1ms simulation steps
-    was_updated = update_controller!(ctrl, t)  # Only updates when Ts elapsed
-end
+# With external interface
+ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
+    external=ExternalInterface(
+        measure_process_variable = () -> read_sensor(),
+        apply_manipulated_variable = (mv) -> set_actuator(mv)
+    ))
 ```
 """
 @kwdef mutable struct DiscreteController{FT<:AbstractFloat}
@@ -145,7 +121,16 @@ end
 end
 
 
-# Constructor with a given DiscretePID
+"""
+    DiscreteController(pid::DiscretePID; kwargs...)
+
+Create a discrete controller with an existing DiscretePID.
+
+# Arguments
+- `pid::DiscretePID`: Pre-configured PID controller
+- `initial_time::Real=0.0`: Initial simulation time
+- `kwargs...`: Additional controller parameters (sp, name, external, etc.)
+"""
 function DiscreteController(pid::DiscretePID{FT};
     initial_time::Real = 0.0,
     kwargs...
@@ -173,7 +158,29 @@ function DiscreteController(pid::DiscretePID{FT};
     )
 end
 
-# Constructor with sampling time Ts (creates PID internally)
+"""
+    DiscreteController(Ts::Real; kwargs...)
+
+Create a discrete controller with sampling time and PID parameters.
+
+# Arguments
+- `Ts::Real`: Sampling time [s]
+- `initial_time::Real=0.0`: Initial simulation time
+- `K, Ti, Td, ...`: PID parameters passed to DiscretePID constructor
+- `sp, name, external, ...`: Controller-specific parameters
+
+# Examples
+```julia
+# Basic PID controller
+ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0)
+
+# With external interface
+ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
+    external=ExternalInterface(
+        measure_process_variable = () -> read_sensor()
+    ))
+```
+"""
 function DiscreteController(Ts::FT;
     initial_time::Real = 0.0,
     kwargs...

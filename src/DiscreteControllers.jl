@@ -1,14 +1,14 @@
 """
 DiscreteControllers.jl
 
-A lightweight Julia package for discrete controller timing management with
-autonomous timing control, data logging, and basic diagnostics.
+A lightweight Julia package for discrete-time controllers with autonomous timing
+management, built-in logging, and optional plotting capabilities.
 
-Built on top of DiscretePIDs.jl to provide:
-- Autonomous sampling time management
-- Automatic data logging for analysis
-- Basic performance diagnostics
-- Simple visualization utilities
+Built on DiscretePIDs.jl to provide:
+- Autonomous timing management
+- Built-in data logging
+- Flexible construction
+- Optional visualization
 """
 module DiscreteControllers
 
