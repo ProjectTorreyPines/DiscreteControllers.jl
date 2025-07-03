@@ -129,7 +129,7 @@ end
     sp::FT = zero(FT)                   # Setpoint
     pv::FT = zero(FT)                   # Process variable (measurement)
     error::FT = sp - pv                 # Control error (sp - pv)
-    mv::FT = zero(FT)                   # Manipulated variable (control output)
+    mv::FT = NaN                        # Manipulated variable (control output)
 
     # Optional functions for external system integration
     # These are called at specific points in the control loop if provided
