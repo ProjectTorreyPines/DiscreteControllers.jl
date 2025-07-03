@@ -26,7 +26,7 @@ Pkg.add("DiscreteControllers")
 using DiscreteControllers
 
 # Your plant initialization
-plant = construct_plant_system()  # Initialize your thermal system
+plant = construct_plant_system()
 
 # Define constant target temperature (setpoint)
 target_temperature = 30.0
@@ -45,9 +45,8 @@ for t in 0:dt:10
     # Your plant simulation continues independently
     simulate_plant_step!(plant, dt)
 
+    # Update controller with temperature measurement
     current_temperature = get_temperature(plant)
-
-    # Update controller with current measurement
     set_pv!(ctrl, current_temperature)
 
     # Controller automatically manages timing - only updates every 10ms
@@ -70,9 +69,9 @@ end
 using DiscreteControllers
 
 # Your plant initialization
-plant = construct_plant_system()  # Initialize your thermal system
+plant = construct_plant_system()
 
-# Define your system interface functions
+# Suppose you have time-varying setpoint
 scheduled_temperature(time) = time < 5.0 ? 10.0 : 25.0  # Step change at t=5s
 
 # Create controller with automatic system interface
@@ -81,7 +80,7 @@ ctrl = DiscreteController(
     K=1.0, Ti=2.0, Td=0.1,
     system_interface=SystemInterface(
         # Read setpoint from a schedule (time-varying setpoint)
-        read_setpoint = scheduled_temperature,
+        read_setpoint = (time) -> scheduled_temperature(time),
         # Read current measurement from sensor/plant
         read_process_var = () -> get_temperature(plant),
         # Send control signal to actuator/plant
