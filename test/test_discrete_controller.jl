@@ -7,6 +7,7 @@ using DiscreteControllers
     control_output_data = Ref(0.0)
 
     # Mock functions
+    set_setpoint_func = (time) -> (100.0 + time)
     measure_func = () -> measurement_data[]
     actuate_func = (signal) -> control_output_data[] = signal
 
@@ -144,7 +145,55 @@ using DiscreteControllers
         @test result == true
         @test ctrl.monitor.update_count == 2
         @test ctrl.pv == 75.0
+
+        # Time regression should not update
+        result = @test_logs (:warn, r"Time regression detected in") match_mode=:any begin
+            update_controller!(ctrl, 0.0)
+        end
+        @test result == false
+        @test ctrl.monitor.update_count == 2  # Should not increment
     end
+
+    @testset "Consistency with setpoint func" begin
+        Ts = 0.01
+        initial_time = 0.5
+        ini_sp = set_setpoint_func(initial_time)
+
+        external = ExternalInterface(
+            set_setpoint = set_setpoint_func,
+            measure_process_variable = measure_func,
+            apply_manipulated_variable = actuate_func
+        )
+
+        ctrl = DiscreteController(
+            Ts;
+            K = 1.0, Ti = 2.0, Td = 0.1,
+            sp = ini_sp,
+            name = "setpoint_func_test",
+            external,
+            initial_time
+        )
+
+        # Initial setpoint should be 100.0
+        @test ctrl.sp == ini_sp
+
+        # Update controller to trigger setpoint function
+        for k = 1:3
+            time = initial_time + k*Ts
+            result = update_controller!(ctrl, time)
+            @test result == true
+            @test ctrl.monitor.update_count == k
+
+            # Check if setpoint was correctly applied
+            @test ctrl.sp == set_setpoint_func(time)
+        end
+
+
+        # Test error cases where initial state (sp, pv) is not consistent with external_interface's functions
+        @test_throws AssertionError DiscreteController( Ts; sp = -100.0, external, initial_time)
+        @test_throws AssertionError DiscreteController( Ts; pv = -100.0, external, initial_time)
+    end
+
 
     @testset "Control Logic" begin
         Ts = 0.01
@@ -267,7 +316,7 @@ using DiscreteControllers
         # Test initial values
         @test get_setpoint(ctrl) === 100.0
         @test get_pv(ctrl) === 0.0
-        @test get_mv(ctrl) === 0.0
+        @test get_mv(ctrl) === NaN
         @test get_error(ctrl) === 100.0  # sp - pv = 100 - 0
         @test get_update_count(ctrl) === 0
         @test get_missed_deadlines(ctrl) === 0
@@ -343,5 +392,18 @@ using DiscreteControllers
         @test get_mv(ctrl) === 0.0
         @test get_pv(ctrl) === 0.0
         @test get_error(ctrl) === get_setpoint(ctrl)  # sp - 0
+    end
+
+    @testset "Coverage tests on Edge cases" begin
+        ctrl = DiscreteController(
+            0.1;  # 100ms sampling
+        )
+
+        @test_logs (:warn, r"Logger is empty, no data to export") match_mode=:any begin
+            export_log(ctrl, "logger_output.csv")
+        end
+
+        ctrl.enable_logging = false
+        show_controller_status(ctrl)
     end
 end
