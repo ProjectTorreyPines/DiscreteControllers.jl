@@ -1,3 +1,6 @@
+[![CI](https://github.com/mgyoo86/DiscreteControllers.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/mgyoo86/DiscreteControllers.jl/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/github/mgyoo86/DiscreteControllers.jl/graph/badge.svg?token=UJJVCRCCL6)](https://codecov.io/github/mgyoo86/DiscreteControllers.jl)
+
 # DiscreteControllers.jl
 
 A lightweight Julia package for discrete controller timing management with autonomous timing control, data logging, and basic diagnostics.
