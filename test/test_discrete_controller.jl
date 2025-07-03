@@ -382,6 +382,8 @@ using DiscreteControllers
         @test result === false
         @test get_missed_deadlines(ctrl) === 1
 
+        show(ctrl)
+
         # Fix the measurement function
         ctrl.system_interface.read_process_var = () -> measurement_data[]
 
@@ -406,5 +408,199 @@ using DiscreteControllers
 
         ctrl.enable_logging = false
         show_controller_status(ctrl)
+    end
+
+
+    @testset "Show Methods Tests" begin
+        # Create a controller with various states for testing
+        ctrl = DiscreteController(
+            0.1;  # 100ms sampling
+            K = 1.0, Ti = 2.0, Td = 0.1,
+            sp = 100.0,
+            name = "show_test_controller",
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
+            ),
+            initial_time = 0.0
+        )
+
+        # Test basic show methods don't throw errors
+        @testset "Basic Show Methods" begin
+            io = IOBuffer()
+
+            # Test Base.show with IO
+            @test_nowarn show(io, ctrl)
+            output = String(take!(io))
+            @test occursin("Controller:", output)
+            @test occursin("show_test_controller", output)
+            @test occursin("Status:", output)
+            @test occursin("ACTIVE", output)
+
+            # Test Base.show with MIME
+            @test_nowarn show(io, MIME"text/plain"(), ctrl)
+            output = String(take!(io))
+            @test occursin("Controller:", output)
+            @test occursin("show_test_controller", output)
+
+            # Test show_controller_status directly
+            @test_nowarn show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("Controller:", output)
+            @test occursin("Sample Time:", output)
+            @test occursin("Setpoint:", output)
+            @test occursin("Process Variable:", output)
+            @test occursin("Error:", output)
+            @test occursin("Control Output:", output)
+            @test occursin("Updates:", output)
+            @test occursin("Logging:", output)
+
+            # Test show_controller_status with stdout (no IO)
+            @test_nowarn show_controller_status(ctrl)
+        end
+
+        @testset "Show Content Verification" begin
+            io = IOBuffer()
+
+            # Set specific values for testing
+            ctrl.sp = 50.0
+            ctrl.pv = 45.0
+            ctrl.error = 5.0
+            ctrl.mv = 12.5
+            ctrl.monitor.update_count = 42
+            ctrl.monitor.missed_deadlines = 0
+
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+
+            # Check that specific values appear in output
+            @test occursin("50.0", output)  # Setpoint
+            @test occursin("45.0", output)  # Process variable
+            @test occursin("5.0", output)   # Error
+            @test occursin("12.5", output)  # Control output
+            @test occursin("42", output)    # Updates
+            @test occursin("0.1 s", output) # Sample time
+        end
+
+        @testset "Show Different States" begin
+            io = IOBuffer()
+
+            # Test inactive controller
+            deactivate!(ctrl)
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("INACTIVE", output)
+
+            # Reactivate for other tests
+            activate!(ctrl)
+
+            # Test with NaN manipulated variable
+            ctrl.mv = NaN
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("N/A", output)
+
+            # Test with missed deadlines
+            ctrl.monitor.missed_deadlines = 5
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("MISSED DEADLINES: 5", output)
+            @test occursin("⚠️", output)
+
+            # Test with disabled logging
+            ctrl.enable_logging = false
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("Disabled", output)
+
+            # Re-enable logging
+            ctrl.enable_logging = true
+        end
+
+        @testset "Relative Error Display" begin
+            io = IOBuffer()
+
+            # Test with different error magnitudes for relative error
+            # Small error (should be green)
+            ctrl.sp = 100.0
+            ctrl.pv = 98.0  # 2% error
+            ctrl.error = 2.0
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("2.0%", output)
+
+            # Medium error (should be yellow)
+            ctrl.pv = 90.0  # 10% error
+            ctrl.error = 10.0
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("10.0%", output)
+
+            # Large error (should be red)
+            ctrl.pv = 70.0  # 30% error
+            ctrl.error = 30.0
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("30.0%", output)
+
+            # Test with zero setpoint (should not show percentage)
+            ctrl.sp = 0.0
+            ctrl.pv = 5.0
+            ctrl.error = -5.0
+            show_controller_status(io, ctrl)
+            ctrl.error = -15.0
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test !occursin("%", output)  # Should not contain percentage
+        end
+
+        @testset "Logging Status Display" begin
+            io = IOBuffer()
+
+            # Test with logged data
+            ctrl.enable_logging = true
+            # Add some fake log data
+            for i in 1:10
+                push!(ctrl.logger.timestamps, Float64(i))
+                push!(ctrl.logger.setpoints, Float64(i))
+                push!(ctrl.logger.process_variables, Float64(i))
+                push!(ctrl.logger.manipulated_variables, Float64(i))
+                push!(ctrl.logger.errors, Float64(i))
+                push!(ctrl.logger.update_counts, i)
+            end
+
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("Enabled", output)
+            @test occursin("10 data points", output)
+        end
+
+        @testset "Edge Cases" begin
+            io = IOBuffer()
+
+            # Test with empty controller name
+            ctrl_empty = DiscreteController(0.1)
+            show_controller_status(io, ctrl_empty)
+            output = String(take!(io))
+            @test occursin("Controller:", output)  # Should handle empty name gracefully
+
+            # Test with very large numbers
+            ctrl.sp = 1e6
+            ctrl.pv = 1e6 - 1
+            ctrl.error = 1.0
+            ctrl.mv = 1e6
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test occursin("1.0e6", output) || occursin("1000000", output)
+
+            # Test with very small numbers
+            ctrl.sp = 1e-6
+            ctrl.pv = 1e-6
+            ctrl.error = 0.0
+            ctrl.mv = 1e-6
+            show_controller_status(io, ctrl)
+            output = String(take!(io))
+            @test !isempty(output)  # Should produce some output
+        end
     end
 end

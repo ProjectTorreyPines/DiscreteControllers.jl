@@ -7,6 +7,8 @@ This module provides logging capabilities for discrete controllers:
 - Log management functions
 """
 
+using Printf
+
 """
     enable_logging!(ctrl::DiscreteController)
 
@@ -95,26 +97,119 @@ function log_to_logger!(logger::Logger{FT}, ctrl::DiscreteController{FT}, time::
     push!(logger.update_counts, ctrl.monitor.update_count)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", ctrl::DiscreteController)
+    show_controller_status(io, ctrl)
+end
+
+function Base.show(io::IO, ctrl::DiscreteController)
+    show_controller_status(io, ctrl)
+end
+
+"""
+    show_controller_status(io::IO, ctrl::DiscreteController)
+
+Display a brief status summary of the controller to the specified IO stream.
+"""
+function show_controller_status(io::IO, ctrl::DiscreteController)
+    # Header with controller name
+    printstyled(io, "Controller: "; bold=true)
+    printstyled(io, ctrl.name; color=:cyan, bold=true)
+    println(io)
+
+    # Status
+    print(io, "├─ Status: ")
+    if ctrl.is_active
+        printstyled(io, "ACTIVE"; color=:green, bold=true)
+    else
+        printstyled(io, "INACTIVE"; color=:red, bold=true)
+    end
+    println(io)
+
+    # Sample time
+    print(io, "├─ Sample Time: ")
+    print(io, "$(ctrl.Ts) s")
+    println(io)
+
+    # Setpoint
+    print(io, "├─ Setpoint: ")
+    printstyled(io, @sprintf("%.3f", ctrl.sp); color=:blue, bold=true)
+    println(io)
+
+    # Process variable
+    print(io, "├─ Process Variable: ")
+    printstyled(io, @sprintf("%.3f", ctrl.pv); color=:blue, bold=true)
+    println(io)
+
+    # Error with color coding based on magnitude
+    print(io, "├─ Error: ")
+    error_str = @sprintf("%.3f", ctrl.error)
+
+    # Calculate relative error (sp-pv)/sp, handle sp=0 case
+    if abs(ctrl.sp) > 1e-10  # Avoid division by zero
+        rel_error = (ctrl.sp - ctrl.pv) / ctrl.sp * 100  # Convert to percentage
+        rel_error_str = @sprintf("%.1f%%", rel_error)
+
+        print(io, error_str)
+
+        if abs(rel_error) > 20.0  # > 20% error
+            error_color = :red
+        elseif abs(rel_error) > 5.0  # > 5% error
+            error_color = :yellow
+        else  # <= 5% error
+            error_color = :green
+        end
+        print(io, " (")
+        printstyled(io, rel_error_str; color=error_color, bold=true)
+        print(io, ")")
+    else
+        # When setpoint is zero, just show absolute error
+        if abs(ctrl.error) > 10.0
+            printstyled(io, error_str; color=:red, bold=true)
+        elseif abs(ctrl.error) > 1.0
+            printstyled(io, error_str; color=:yellow, bold=true)
+        else
+            printstyled(io, error_str; color=:green, bold=true)
+        end
+    end
+    println(io)
+
+    # Control output
+    print(io, "├─ Control Output: ")
+    if isnan(ctrl.mv)
+        printstyled(io, "N/A")
+    else
+        printstyled(io, @sprintf("%.3f", ctrl.mv))
+    end
+    println(io)
+
+    # Updates count and missed deadlines
+    print(io, "├─ Updates: $(ctrl.monitor.update_count)")
+    # Show missed deadlines prominently if any
+    if ctrl.monitor.missed_deadlines > 0
+        print(io, " | ")
+        printstyled(io, "⚠️  MISSED DEADLINES: $(ctrl.monitor.missed_deadlines)"; color=:red, bold=true)
+    end
+    println(io)
+
+    # Logging status
+    print(io, "╰─ Logging: ")
+    if ctrl.enable_logging
+        printstyled(io, "Enabled"; color=:green)
+        print(io, " ($(length(ctrl.logger.timestamps)) data points)")
+    else
+        printstyled(io, "Disabled"; color=:red)
+    end
+    println(io)
+
+    # Add empty line for better separation when called multiple times
+    println(io)
+end
+
 """
     show_controller_status(ctrl::DiscreteController)
 
-Display a brief status summary of the controller.
+Display a brief status summary of the controller to stdout.
 """
 function show_controller_status(ctrl::DiscreteController)
-    println("Controller: $(ctrl.name)")
-    println("  Status: $(ctrl.is_active ? "ACTIVE" : "INACTIVE")")
-    println("  Setpoint: $(round(ctrl.sp, digits=3))")
-    println("  Process Variable: $(round(ctrl.pv, digits=3))")
-    println("  Error: $(round(ctrl.error, digits=3))")
-    println("  Manipulated Variable: $(round(ctrl.mv, digits=3))")
-    println("  Sample Time: $(ctrl.Ts) s")
-    println("  Updates: $(ctrl.monitor.update_count)")
-
-    # Logging status
-    println("  Logging:")
-    if ctrl.enable_logging
-        println("    Enabled: $(length(ctrl.logger.timestamps)) data points")
-    else
-        println("    Disabled")
-    end
+    show_controller_status(stdout, ctrl)
 end
