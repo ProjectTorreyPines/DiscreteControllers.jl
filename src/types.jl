@@ -6,7 +6,7 @@ This module defines all the core types used in the discrete control system:
 - PerformanceMonitor: tracks performance metrics
 - Logger: collects time-series data
 - DiscreteController: main controller type
-- ExternalInterface: groups I/O callbacks for external system integration
+- SystemInterface: groups I/O callbacks for system interaction
 """
 
 """
@@ -47,18 +47,15 @@ Simple internal logger for collecting controller data over time.
 end
 
 """
-    ExternalInterface
+    SystemInterface
 
-Interface functions for connecting the controller to external systems.
+Interface functions for connecting the controller to system_interface systems.
 Groups all I/O functions together for better organization.
 """
-@kwdef mutable struct ExternalInterface
-    # Input functions (called before control calculation)
-    measure_process_variable::Union{Function, Nothing} = nothing # () -> Real - read sensor/measurement
-    set_setpoint::Union{Function, Nothing} = nothing              # () -> Real - get reference/setpoint
-
-    # Output functions (called after control calculation)
-    apply_manipulated_variable::Union{Function, Nothing} = nothing # (mv::Real) -> nothing - send to actuator
+@kwdef mutable struct SystemInterface
+    read_setpoint::Union{Function, Nothing} = nothing       # (time) -> Real - get reference/setpoint
+    read_process_var::Union{Function, Nothing} = nothing    # () -> Real - read sensor/measurement
+    apply_control_signal::Union{Function, Nothing} = nothing # (signal) -> nothing - send to actuator
 end
 
 """
@@ -74,7 +71,7 @@ Discrete controller with autonomous timing management and built-in logging.
 - `pv::FT`: Current process variable
 - `error::FT`: Current control error (sp - pv)
 - `mv::FT`: Current manipulated variable
-- `external::ExternalInterface`: Optional I/O callbacks
+- `system_interface::SystemInterface`: Optional I/O callbacks
 - `timing::TimingManager{FT}`: Timing management
 - `monitor::PerformanceMonitor`: Performance metrics
 - `enable_logging::Bool`: Logging enable flag
@@ -85,11 +82,11 @@ Discrete controller with autonomous timing management and built-in logging.
 # With PID parameters
 ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, Td=0.1, sp=100.0)
 
-# With external interface
+# With system_interface interface
 ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
-    external=ExternalInterface(
-        measure_process_variable = () -> read_sensor(),
-        apply_manipulated_variable = (mv) -> set_actuator(mv)
+    system_interface=SystemInterface(
+        read_process_var = () -> read_sensor(),
+        apply_control_signal = (signal) -> set_actuator(signal)
     ))
 ```
 """
@@ -107,9 +104,9 @@ ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
     error::FT = sp - pv                 # Control error (sp - pv)
     mv::FT = NaN                        # Manipulated variable (control output)
 
-    # Optional functions for external system integration
+    # Optional functions for system_interface system integration
     # These are called at specific points in the control loop if provided
-    external::ExternalInterface = ExternalInterface()
+    system_interface::SystemInterface = SystemInterface()
 
     # Internal management structures
     timing::TimingManager{FT}  # No default - must be set in constructor
@@ -129,7 +126,7 @@ Create a discrete controller with an existing DiscretePID.
 # Arguments
 - `pid::DiscretePID`: Pre-configured PID controller
 - `initial_time::Real=0.0`: Initial simulation time
-- `kwargs...`: Additional controller parameters (sp, name, external, etc.)
+- `kwargs...`: Additional controller parameters (sp, name, system_interface, etc.)
 """
 function DiscreteController(pid::DiscretePID{FT};
     initial_time::Real = 0.0,
@@ -139,7 +136,7 @@ function DiscreteController(pid::DiscretePID{FT};
     @assert !haskey(kwargs, :Ts) "Cannot specify Ts when providing a DiscretePID (PID already has Ts=$(pid.Ts))"
     @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
-    # Convert kwargs to mutable dict and validate/set initial state with external interface
+    # Convert kwargs to mutable dict and validate/set initial state with system_interface interface
     kwargs = Dict{Symbol, Any}(kwargs)
     validate_and_set_initial_state_with_external!(kwargs, initial_time)
 
@@ -167,17 +164,17 @@ Create a discrete controller with sampling time and PID parameters.
 - `Ts::Real`: Sampling time [s]
 - `initial_time::Real=0.0`: Initial simulation time
 - `K, Ti, Td, ...`: PID parameters passed to DiscretePID constructor
-- `sp, name, external, ...`: Controller-specific parameters
+- `sp, name, system_interface, ...`: Controller-specific parameters
 
 # Examples
 ```julia
 # Basic PID controller
 ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0)
 
-# With external interface
+# With system_interface interface
 ctrl = DiscreteController(0.01; K=1.0, Ti=2.0, sp=100.0,
-    external=ExternalInterface(
-        measure_process_variable = () -> read_sensor()
+    system_interface=SystemInterface(
+        read_process_var = () -> read_sensor()
     ))
 ```
 """
@@ -189,7 +186,7 @@ function DiscreteController(Ts::FT;
     @assert !haskey(kwargs, :pid) "Cannot specify pid when providing Ts (use DiscreteController(pid; ...) instead)"
     @assert !haskey(kwargs, :timing) "Timing is set automatically based on Ts and initial_time, do not provide timing in kwargs"
 
-    # Convert kwargs to mutable dict and validate/set initial state with external interface
+    # Convert kwargs to mutable dict and validate/set initial state with system_interface interface
     kwargs = Dict{Symbol, Any}(kwargs)
     validate_and_set_initial_state_with_external!(kwargs, initial_time)
 
@@ -230,32 +227,32 @@ end
 """
     validate_and_set_initial_state_with_external!(kwargs_dict, initial_time)
 
-Helper function to validate and set initial state (sp, pv) when external interface is provided.
-Modifies kwargs_dict in-place to add sp and/or pv if they are not provided but external functions exist.
+Helper function to validate and set initial state (sp, pv) when system_interface interface is provided.
+Modifies kwargs_dict in-place to add sp and/or pv if they are not provided but system_interface functions exist.
 """
 function validate_and_set_initial_state_with_external!(kwargs_dict::Dict{Symbol, Any}, initial_time::Real)
-    if haskey(kwargs_dict, :external)
-        external = kwargs_dict[:external]
+    if haskey(kwargs_dict, :system_interface)
+        system_interface = kwargs_dict[:system_interface]
 
-        @assert external isa ExternalInterface "external must be an instance of ExternalInterface"
+        @assert system_interface isa SystemInterface "system_interface must be an instance of SystemInterface"
 
         # Handle setpoint
-        if !isnothing(external.set_setpoint)
+        if !isnothing(system_interface.read_setpoint)
             if haskey(kwargs_dict, :sp)
-                external_sp = external.set_setpoint(initial_time)
-                @assert kwargs_dict[:sp] == external_sp "Given initial setpoint sp ($(kwargs_dict[:sp])) must match external setpoint function output ($(external_sp))"
+                external_sp = system_interface.read_setpoint(initial_time)
+                @assert kwargs_dict[:sp] == external_sp "Given initial setpoint sp ($(kwargs_dict[:sp])) must match system_interface setpoint function output ($(external_sp))"
             else
-                kwargs_dict[:sp] = external.set_setpoint(initial_time)
+                kwargs_dict[:sp] = system_interface.read_setpoint(initial_time)
             end
         end
 
         # Handle process variable
-        if !isnothing(external.measure_process_variable)
+        if !isnothing(system_interface.read_process_var)
             if haskey(kwargs_dict, :pv)
-                external_pv = external.measure_process_variable()
-                @assert kwargs_dict[:pv] == external_pv "Given initial process variable pv ($(kwargs_dict[:pv])) must match external measurement ($(external_pv))"
+                external_pv = system_interface.read_process_var()
+                @assert kwargs_dict[:pv] == external_pv "Given initial process variable pv ($(kwargs_dict[:pv])) must match system_interface measurement ($(external_pv))"
             else
-                kwargs_dict[:pv] = external.measure_process_variable()
+                kwargs_dict[:pv] = system_interface.read_process_var()
             end
         end
     end

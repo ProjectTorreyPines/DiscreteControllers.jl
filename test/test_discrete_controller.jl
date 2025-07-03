@@ -7,7 +7,7 @@ using DiscreteControllers
     control_output_data = Ref(0.0)
 
     # Mock functions
-    set_setpoint_func = (time) -> (100.0 + time)
+    read_setpoint_func = (time) -> (100.0 + time)
     measure_func = () -> measurement_data[]
     actuate_func = (signal) -> control_output_data[] = signal
 
@@ -19,9 +19,9 @@ using DiscreteControllers
             ;
             sp = 100.0,
             name = "test_controller",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -93,9 +93,9 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "keyword_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.5
         )
@@ -120,9 +120,9 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "timing_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -157,12 +157,12 @@ using DiscreteControllers
     @testset "Consistency with setpoint func" begin
         Ts = 0.01
         initial_time = 0.5
-        ini_sp = set_setpoint_func(initial_time)
+        ini_sp = read_setpoint_func(initial_time)
 
-        external = ExternalInterface(
-            set_setpoint = set_setpoint_func,
-            measure_process_variable = measure_func,
-            apply_manipulated_variable = actuate_func
+        system_interface = SystemInterface(
+            read_setpoint = read_setpoint_func,
+            read_process_var = measure_func,
+            apply_control_signal = actuate_func
         )
 
         ctrl = DiscreteController(
@@ -170,7 +170,7 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = ini_sp,
             name = "setpoint_func_test",
-            external,
+            system_interface,
             initial_time
         )
 
@@ -185,13 +185,13 @@ using DiscreteControllers
             @test ctrl.monitor.update_count == k
 
             # Check if setpoint was correctly applied
-            @test ctrl.sp == set_setpoint_func(time)
+            @test ctrl.sp == read_setpoint_func(time)
         end
 
 
         # Test error cases where initial state (sp, pv) is not consistent with external_interface's functions
-        @test_throws AssertionError DiscreteController( Ts; sp = -100.0, external, initial_time)
-        @test_throws AssertionError DiscreteController( Ts; pv = -100.0, external, initial_time)
+        @test_throws AssertionError DiscreteController( Ts; sp = -100.0, system_interface, initial_time)
+        @test_throws AssertionError DiscreteController( Ts; pv = -100.0, system_interface, initial_time)
     end
 
 
@@ -202,9 +202,9 @@ using DiscreteControllers
             K = 2.0, Ti = 1.0, Td = 0.0,
             sp = 100.0,
             name = "control_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -225,9 +225,9 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "activation_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -259,9 +259,9 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "setpoint_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -279,9 +279,9 @@ using DiscreteControllers
             K = 1.0, Ti = 2.0, Td = 0.1,
             sp = 100.0,
             name = "reset_test",
-            external = ExternalInterface(
-                measure_process_variable = measure_func,
-                apply_manipulated_variable = actuate_func
+            system_interface = SystemInterface(
+                read_process_var = measure_func,
+                apply_control_signal = actuate_func
             ),
             initial_time = 0.0
         )
@@ -345,7 +345,7 @@ using DiscreteControllers
 
         # Test MV and update count after a control update
         measurement_data = Ref(75.5)
-        ctrl.external.measure_process_variable = () -> measurement_data[]
+        ctrl.system_interface.read_process_var = () -> measurement_data[]
 
         # Run one control update
         result = update_controller!(ctrl, 0.01)
@@ -371,7 +371,7 @@ using DiscreteControllers
 
         # Test missed deadlines (simulate error condition)
         # Temporarily break the measurement function to cause an error
-        ctrl.external.measure_process_variable = () -> error("Simulated sensor failure")
+        ctrl.system_interface.read_process_var = () -> error("Simulated sensor failure")
 
         # Use @test_logs to capture the expected error message and suppress it from output
         result = @test_logs (:error, r"Controller update failed") match_mode=:any begin
@@ -382,7 +382,7 @@ using DiscreteControllers
         @test get_missed_deadlines(ctrl) === 1
 
         # Fix the measurement function
-        ctrl.external.measure_process_variable = () -> measurement_data[]
+        ctrl.system_interface.read_process_var = () -> measurement_data[]
 
         # Test reset functionality
         reset!(ctrl, 5.0)

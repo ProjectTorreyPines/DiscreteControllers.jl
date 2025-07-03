@@ -31,14 +31,14 @@ ctrl = DiscreteController(
     name="temperature_controller"
 )
 
-# With external interface for automatic measurement/actuation
+# With system_interface interface for automatic measurement/actuation
 ctrl = DiscreteController(
     0.01;
     K=1.0, Ti=2.0, Td=0.1,
     sp=100.0,
-    external=ExternalInterface(
-        measure_process_variable = () -> read_sensor(),
-        apply_manipulated_variable = (mv) -> set_actuator(mv)
+    system_interface=SystemInterface(
+        read_process_var = () -> read_sensor(),
+        apply_control_signal = (signal) -> set_actuator(signal)
     )
 )
 

@@ -24,9 +24,9 @@ using DiscreteControllers
             K=10.0, Ti=5.0, Td=0.5,
             sp = 60.0,  # Target temperature: 60°C
             name = "temperature_controller",
-            external = ExternalInterface(
-                measure_process_variable = measure_temp,
-                apply_manipulated_variable = set_heater
+            system_interface = SystemInterface(
+                read_process_var = measure_temp,
+                apply_control_signal = set_heater
             ),
             enable_logging = true
         )
@@ -88,9 +88,9 @@ using DiscreteControllers
             K=2.0, Ti=1.0, Td=0.02,
             sp = 1000.0,  # Target: 1000 RPM
             name = "speed_controller",
-            external = ExternalInterface(
-                measure_process_variable = measure_speed,
-                apply_manipulated_variable = set_voltage
+            system_interface = SystemInterface(
+                read_process_var = measure_speed,
+                apply_control_signal = set_voltage
             ),
             enable_logging = true
         )
@@ -150,9 +150,9 @@ using DiscreteControllers
             K=20.0, Ti=3.0, Td=0.1,
             sp = 6.0,  # Target: 6 bar
             name = "pressure_controller",
-            external = ExternalInterface(
-                measure_process_variable = measure_pressure,
-                apply_manipulated_variable = set_valve
+            system_interface = SystemInterface(
+                read_process_var = measure_pressure,
+                apply_control_signal = set_valve
             ),
             enable_logging = true
         )
@@ -188,9 +188,9 @@ using DiscreteControllers
             K=1.0, Ti=1.0, Td=0.1,
             sp = 10.0,
             name = "test_mgmt",
-            external = ExternalInterface(
-                measure_process_variable = () -> value[],
-                apply_manipulated_variable = (u) -> output[] = u
+            system_interface = SystemInterface(
+                read_process_var = () -> value[],
+                apply_control_signal = (u) -> output[] = u
             ),
             enable_logging = true
         )

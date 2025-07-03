@@ -22,7 +22,7 @@ include("logging.jl")     # Logging and data export functionality
 
 # Exports
 export DiscretePID # Re-export from DiscretePIDs
-export DiscreteController, ExternalInterface
+export DiscreteController, SystemInterface
 
 # Core controller functions
 export update_controller!, activate!, deactivate!, reset!

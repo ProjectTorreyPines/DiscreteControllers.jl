@@ -53,13 +53,13 @@ function update_controller!(
     if should_update
         try
             # Update setpoint if callback provided
-            if ctrl.external.set_setpoint !== nothing
-                ctrl.sp = FT(ctrl.external.set_setpoint(new_time))
+            if ctrl.system_interface.read_setpoint !== nothing
+                ctrl.sp = FT(ctrl.system_interface.read_setpoint(new_time))
             end
 
             # Update process variable if callback provided
-            if ctrl.external.measure_process_variable !== nothing
-                ctrl.pv = FT(ctrl.external.measure_process_variable())
+            if ctrl.system_interface.read_process_var !== nothing
+                ctrl.pv = FT(ctrl.system_interface.read_process_var())
             end
 
             # Update error
@@ -73,8 +73,8 @@ function update_controller!(
             )
 
             # Apply control signal if callback provided
-            if ctrl.external.apply_manipulated_variable !== nothing
-                ctrl.external.apply_manipulated_variable(ctrl.mv)
+            if ctrl.system_interface.apply_control_signal !== nothing
+                ctrl.system_interface.apply_control_signal(ctrl.mv)
             end
 
             # Update internal timing state
@@ -110,7 +110,7 @@ end
 """
     set_pv!(ctrl::DiscreteController, new_pv::Real)
 
-Set the process variable value manually (when not using external interface).
+Set the process variable value manually (when not using system_interface interface).
 """
 function set_pv!(ctrl::DiscreteController{FT}, new_pv::Real) where {FT<:AbstractFloat}
     ctrl.pv = FT(new_pv)
